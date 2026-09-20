@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: 安裝（只裝 numpy，驗證「學生情境」不需要任何額外套件）
+        run: uv sync --python ${{ matrix.python }} --group dev
+      - name: 測試（沒裝 torch/qiskit 時，跨框架測試會自動跳過）
+        run: uv run --python ${{ matrix.python }} pytest -q
+      - name: 黃金向量一致性（對真 CUDA-Q 產生的向量）
+        run: uv run --python ${{ matrix.python }} pytest -q tests/test_golden.py -v
