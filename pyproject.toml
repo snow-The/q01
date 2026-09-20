@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "q01"
+name = "qml01c"
 version = "0.0.1"
 description = "CUDA-Q 相容子集：用 NumPy / PyTorch 在純 CPU（原生 Windows）上跑 CUDA-Q 語法的量子電路"
 readme = "README.md"

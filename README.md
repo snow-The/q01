@@ -21,9 +21,19 @@ Linux 與 macOS ARM）。於是量子機器學習在教學與小型研究現場�
 ## 安裝
 
 ```bash
-pip install q01
-uv add q01
+pip install qml01c        # PyPI 上的發佈名
+uv add qml01c
 ```
+
+!!! note "發佈名與匯入名不同"
+    PyPI 的專案名是 `qml01c`（`q01` 被 PyPI 判定與既有專案過於相似而保留），
+    但**匯入名仍是 `q01`**：
+
+    ```python
+    import q01          # 不變
+    ```
+
+    這與 `pillow` → `PIL`、`scikit-learn` → `sklearn` 是同一種模式。
 
 只有一個必需依賴：`numpy>=2.0`。選用：`torch`（自動微分）、`qiskit` / `cirq` / `pennylane`（跨框架對帳）、`mpmath`（高精度參考）。
 
@@ -34,12 +44,16 @@ import q01 as cudaq
 
 @cudaq.kernel
 def bell():
-    q = cudaq.qubit()
-    cudaq.h(q)
-    cudaq.cx(q, q)
+    q = cudaq.qvector(2)      # Bell 態需要兩個 qubit
+    cudaq.h(q[0])
+    cudaq.cx(q[0], q[1])
 
 print(cudaq.get_state(bell))
 ```
+
+> `q01` 與 CUDA-Q 相同：```kernel` 會讀取函式的**原始碼**做 AST 追蹤，所以 kernel 必須
+> 定義在真實的 `.py` 檔裡，不能寫在 `python -c` 的內嵌字串中（會得到
+> `kernel 取得原始碼失敗` 的錯誤）。
 
 ## 驗證到什麼程度
 
