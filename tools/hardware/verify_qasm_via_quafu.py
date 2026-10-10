@@ -26,8 +26,8 @@ try:
 except Exception as e:
     print("  simulate sig 讀不到:", e)
 
-QASM = pathlib.Path(__file__).resolve().parents[2] / "tools/hardware/qasm"
-GOLD = json.loads(pathlib.Path(__file__).resolve().parents[2] / "tests/golden/cudaq_golden.json".read_text(encoding="utf-8"))
+QASM = pathlib.Path("/mnt/c/Users/qq134/source/repos/QBN/packages/q01/tools/hardware/qasm")
+GOLD = json.loads(pathlib.Path("/mnt/c/Users/qq134/source/repos/QBN/packages/q01/tests/golden/cudaq_golden.json").read_text(encoding="utf-8"))
 
 print()
 print("== 逐案例：QASM -> quafu -> 模擬 -> 比對黃金向量 ==")

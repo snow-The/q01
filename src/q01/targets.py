@@ -14,6 +14,10 @@ __all__ = ["Target", "set_target", "get_target", "get_targets", "set_random_seed
 _SUPPORTED = {"qpp-cpu", "numpy", "torch"}
 _PLANNED = {"qiskit": "P3（Qiskit 交叉核對後端，走 emitter）",
             "cudaq": "由真 CUDA-Q 提供；q01 不代理"}
+
+# 真機後端**不走 set_target**：它的結果是非決定性的、要排隊、會花錢，
+# 混進模擬 target 會讓「跑一下看看」變成送出硬體。請用 `q01.hardware.submit(...)`，
+# 或先用 `q01.hardware.available_backends()` 看有哪些後端。
 _current = "qpp-cpu"
 _torch_device = "cpu"
 _seed: int | None = None

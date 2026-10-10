@@ -22,9 +22,9 @@ from .sampler import SampleResult, get_state, run, sample
 from .simulator import Simulator
 from .spin import ObserveResult, SpinOperator, observe, spin
 from .targets import get_target, get_targets, num_available_gpus, set_random_seed, set_target
-from . import bitorder, gradients
+from . import bitorder, gradients, hardware
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 # 閘（kernel 內由 q01 注入，這裡也對外匯出以便測試與檢視）
 h = GATES["h"]; x = GATES["x"]; y = GATES["y"]; z = GATES["z"]
@@ -40,6 +40,7 @@ __all__ = [
     "gradients", "ParameterShift", "CentralDifference", "ForwardDifference",
     "set_target", "get_target", "get_targets", "set_random_seed", "num_available_gpus",
     "Simulator", "Trace", "Op", "QubitRef", "QVector", "NoTraceError", "bitorder",
+    "hardware",
     "h", "x", "y", "z", "s", "sdg", "t", "tdg", "sx", "rx", "ry", "rz", "cx", "cz", "swap", "ccx",
     "__version__",
 ]

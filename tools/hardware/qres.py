@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import ast
 import json
-import os
 import pathlib
 import sys
 import urllib.request
@@ -24,8 +23,8 @@ import urllib.request
 URL = "https://quafu.baqis.ac.cn/"
 STATUS = {0: "In Queue", 1: "Running", 2: "Completed", 3: "Canceled", 4: "Failed", 5: "Pending"}
 TOKENS = [pathlib.Path.home() / ".dsh" / "quafu.token",
-          pathlib.Path(os.environ.get("QUAFU_TOKEN_FILE", "")) if os.environ.get("QUAFU_TOKEN_FILE") else pathlib.Path("/nonexistent")]
-GOLDEN = pathlib.Path(__file__).resolve().parents[2] / "tests/golden/cudaq_golden.json"
+          pathlib.Path("/mnt/c/Users/qq134/.dsh/quafu.token")]
+GOLDEN = pathlib.Path(__file__).resolve().parents[4] / "packages/q01/tests/golden/cudaq_golden.json"
 
 
 def token() -> str:

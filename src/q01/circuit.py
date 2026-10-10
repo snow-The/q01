@@ -94,7 +94,8 @@ class Trace:
 
     def mark_measured(self, qubits: tuple[int, ...]) -> None:
         if not self.measured and self.live is not None:
-            self.pre_measurement = self.live.psi.copy()   # 供 `sample` 在量測前抽樣
+            # snapshot() 會先落地待作用的融合閘——直接讀 psi 會拿到未落地的舊狀態
+            self.pre_measurement = self.live.snapshot()   # 供 `sample` 在量測前抽樣
         self.measured = True
         self.measures.append(tuple(qubits))
 

@@ -3,13 +3,12 @@
 
 參考解用 mpmath 60 位有效數字獨立重寫同一顆電路（也是獨立實作，順便再驗一次結構）。
 """
-import pathlib
 import sys
 import time
 
 import numpy as np
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, "/mnt/c/Users/qq134/source/repos/QBN/packages/q01/src")
 from q01.circuit import Op  # noqa: E402
 from q01.simulator import Simulator  # noqa: E402
 

@@ -31,6 +31,7 @@ __all__ = [
     "state_little_to_big",
     "index_to_sample_key",
     "sample_key_to_index",
+    "reverse_key",
 ]
 
 
@@ -74,3 +75,16 @@ def index_to_sample_key(index: int, n: int) -> str:
 
 def sample_key_to_index(key: str) -> int:
     return index_of_bits(key)
+
+
+def reverse_key(key: str) -> str:
+    """把一個 counts 的鍵反轉。
+
+    用途：Qiskit 的 counts 字串「最左邊是最高古典位元」，
+    而 q01 的字串鍵「最左邊是 qubit 0」——兩者互為反轉。
+    真機後端（`q01.hardware`）用它把 Qiskit 的結果轉成 q01 的公約。
+
+    反轉只在本檔發生，這是專案層級的約束（`test_core.py::
+    test_only_bitorder_module_does_reversal` 會掃描原始碼強制它）。
+    """
+    return key[::-1]

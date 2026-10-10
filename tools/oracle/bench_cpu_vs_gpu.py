@@ -12,7 +12,7 @@ import time
 import numpy as np
 import cudaq
 
-TMP = tempfile.gettempdir()
+TMP = "/mnt/c/Users/qq134/AppData/Local/Temp"
 sys.path.insert(0, TMP)
 print("CUDA-Q", cudaq.__version__.split("(")[0].strip(), "| gpus =", cudaq.num_available_gpus())
 print()

@@ -3,10 +3,14 @@
 公約：**內部狀態是 big-endian**（q[0] = 最高位），與 `sample` 的字串鍵同構。
 對外的 `get_state` 才是 little-endian，轉換只在 `bitorder.py` 發生（SPEC §4.1）。
 
-最佳化策略（依 SPEC §8.1／§8.4 的研究結論）：
-- 對角閘（z/s/sdg/t/tdg/rz）走半片乘法；X 走 flip；這兩類不必做張量縮併。
-- 一般單閘：n ≤ `EINSUM_MAX_QUBITS` 走 einsum（PennyLane `apply_operation.py:29-30` 的門檻），
-  否則走 moveaxis + tensordot。
+最佳化策略（每一項都有 SPEC §6 的實測依據）：
+- 單閘**全程就地切片、零配置**（§6.7(7)）：舊的 einsum／tensordot 路徑已移除，
+  它在 n ≤ 12 反而慢一倍以上。
+- **閘融合**（§6.9 可行清單第 4 項，2026-09-20 實測）：同一個 qubit 上連續的
+  無控制 1q 閘先合成一個 2×2、再作用一次，省掉每次作用的固定開銷。
+  實測 1.19–1.66×（n = 5–16）；數值差僅 ~1e-16（矩陣乘法的結合律 + 浮點捨入）。
+  落地時機見 `flush()`。
+- 對角閘（z/s/sdg/t/tdg/rz）走半片乘法；X 走 flip；這兩類不必做通用 2×2。
 - 受控閘：對「控制位全為 1」的那一半做 2x2，不建全矩陣。
 """
 
@@ -37,41 +41,94 @@ class Simulator:
             raise ValueError("n_qubits 必須 >= 0（0 表示尚未配置 qubit，之後用 grow() 擴充）")
         self.n = int(n_qubits)
         self.dim = 1 << self.n
-        self.psi = np.zeros(self.dim, dtype=np.complex128)
-        self.psi[0] = 1.0
+        self._psi = np.zeros(self.dim, dtype=np.complex128)
+        self._psi[0] = 1.0
+        self._flushing = False
         self.rng = rng if rng is not None else np.random.default_rng()
         # 單閘熱路徑的可重用暫存（SPEC §6.9：避免每閘配置 → n ≤ 12 快 2.0–2.5×）
         self._scratch_size = -1
         self._s1: np.ndarray | None = None
         self._s2: np.ndarray | None = None
+        # 閘融合：qubit -> 待作用的合成 2×2（見 apply() 與 flush()）
+        self._pending: dict[int, np.ndarray] = {}
 
     # ---------------------------------------------------------------- 基本
+    @property
+    def psi(self) -> np.ndarray:
+        """目前狀態。**讀取一定會先落地待作用的融合閘**，外部永遠看到最新狀態。
+
+        這條不變式是閘融合能安全存在的關鍵：sampler、spin、測試與 oracle 工具
+        都會直接讀 tr.live.psi，若這裡回傳未落地的舊陣列，它們會拿到錯的狀態
+        （第一版就是這樣壞掉的：4 項測試失敗）。
+        與其逐一去補 flush（下一個讀取點又會踩），不如讓「讀就一定是最新的」
+        成為型別保證。
+        """
+        if self._pending and not self._flushing:
+            self.flush()
+        return self._psi
+
+    @psi.setter
+    def psi(self, value: np.ndarray) -> None:
+        self._psi = value
+
     def _bit(self, k: int) -> int:
         """qubit k 在 big-endian 索引中的位元權重。"""
         return 1 << (self.n - 1 - k)
 
     def amplitudes(self) -> np.ndarray:
-        return self.psi.copy()
+        return self.snapshot()
 
     def probabilities(self) -> np.ndarray:
+        self.flush()
         return np.abs(self.psi) ** 2
 
     def norm(self) -> float:
+        self.flush()
         return float(np.linalg.norm(self.psi))
 
     # ------------------------------------------------------------- 閘作用
     def apply(self, name: str, params: tuple[float, ...], qubits: tuple[int, ...], controls: tuple[int, ...] = ()) -> None:
-        """套用一個 op。IR 的正規形式是「單 qubit 閘 + 控制位」（分解在 `gates.py` 完成）。"""
+        """套用一個 op。IR 的正規形式是「單 qubit 閘 + 控制位」（分解在 `gates.py` 完成）。
+
+        **閘融合**：無控制的單 qubit 閘不急著作用，先與同一 qubit 上待作用的閘合成
+        （`u @ prev`，即「先 prev 再 u」），等到必須落地時才作用一次。同一個 qubit 上
+        連續的 1q 閘本來就可以合併，而每次作用都有固定的呼叫開銷
+        （SPEC §6.2：0.205 ms 固定 + 8.5 ns/(振幅·閘)），所以合併直接省下那份開銷。
+
+        必須落地的情況：任何受控閘（它的作用取決於控制位的值）、任何讀取狀態的動作、
+        `grow()`、以及量測——都在各自的入口呼叫 `flush()`。
+        """
         u = matrix_of(name, params)
         if controls:
+            self.flush()
             self.apply_controlled_1q(u, controls, qubits[0])
-        else:
-            self.apply_1q(u, qubits[0])
+            return
+        k = qubits[0]
+        prev = self._pending.get(k)
+        self._pending[k] = u if prev is None else u @ prev
+
+    def flush(self) -> None:
+        """把所有待作用的融合閘落地。需要「看到目前狀態」的動作都必須先呼叫它。"""
+        pending = self._pending
+        if not pending:
+            return
+        self._flushing = True          # 期間不要再遞迴進來
+        try:
+            for k in sorted(pending):
+                self.apply_1q(pending.pop(k), k)
+        finally:
+            self._flushing = False
+
+    def snapshot(self) -> np.ndarray:
+        """目前狀態的副本（先落地待作用的閘）。"""
+        self.flush()
+        return self.psi.copy()
 
     def grow(self, extra: int) -> None:
         """在**低位端**追加 qubit（big-endian 下即尾端），保持既有振幅。"""
         if extra <= 0:
             return
+        self.flush()          # n 改變之後就無法再作用舊的融合閘
         new_n = self.n + extra
         new = np.zeros(1 << new_n, dtype=np.complex128)
         new[:: 1 << extra] = self.psi
@@ -87,6 +144,8 @@ class Simulator:
         對連續的 psi 而言這是**視圖**（不複製）。舊的 einsum／tensordot 路徑已移除
         （實測在 n=18–20 兩者持平，在 n ≤ 12 則慢一倍以上）。
         """
+        if not self._flushing:
+            self.flush()               # 被直接呼叫時，先讓待作用的閘落地以維持時序
         v = self.psi.reshape(-1, 2, 1 << (self.n - 1 - k))
         a = v[:, 0, :]
         b = v[:, 1, :]
@@ -128,6 +187,7 @@ class Simulator:
         return self._s1.reshape(shape), self._s2.reshape(shape)
 
     def apply_controlled_1q(self, u: np.ndarray, controls: tuple[int, ...], target: int) -> None:
+        self.flush()          # 受控閘的作用取決於控制位的值 -> 待作用的閘必須先落地
         controls = tuple(sorted(set(int(c) for c in controls)))
         for c in controls:
             if c == target:
@@ -227,15 +287,17 @@ class Simulator:
 
     def expectation_pauli(self, terms: tuple[tuple[int, str], ...]) -> float:
         """⟨ψ|P|ψ⟩，P 是多個 (qubit, 'x'|'y'|'z') 的乘積。"""
-        saved = self.psi.copy()
+        saved = self.snapshot()
         for q, which in terms:
             self.apply(which, (), (q,))
+        self.flush()                      # 融合閘要落地才看得到
         val = float(np.real(np.vdot(saved, self.psi)))
         self.psi = saved
         return val
 
     def global_phase_of(self, other: np.ndarray) -> complex:
         """回傳 c 使得 psi ≈ c * other（最小平方）。"""
+        self.flush()
         denom = np.vdot(other, other)
         return complex(np.vdot(other, self.psi) / denom) if denom != 0 else 0j
 
@@ -253,6 +315,7 @@ class Simulator:
             sim.psi[j] = 1.0
             for op in ops:
                 sim.apply(op.name, op.params, op.qubits, op.controls)
+            sim.flush()
             u[:, j] = sim.psi
         return u
 

@@ -82,8 +82,8 @@ class TorchBackend:
     def _matrix_of(self, name: str, params):
         """用 **torch 運算**建閘矩陣。
 
-        ★ 不能走 \`gates.matrix_of\`：那裡用 \`float(params[0])\` 取值，會把 autograd 的圖切斷
-        （實測症狀：\`backward()\` 報 "element 0 of tensors does not require grad"）。
+        ★ 不能走 `gates.matrix_of`：那裡用 `float(params[0])` 取值，會把 autograd 的圖切斷
+        （實測症狀：`backward()` 報 "element 0 of tensors does not require grad"）。
         常數閘直接查表；參數閘用 torch 的 cos/sin/exp **函數式**組出矩陣（不可用 in-place 賦值，
         那會讓結果脫離計算圖）。
         """

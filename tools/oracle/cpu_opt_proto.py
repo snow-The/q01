@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """CPU 優化原型 v2：修正正確性檢查（bit-reversal）＋交錯量測降低雜訊。"""
-import pathlib
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, "/mnt/c/Users/qq134/source/repos/QBN/packages/q01/src")
 from q01.circuit import Op  # noqa: E402
 from q01.simulator import Simulator  # noqa: E402
 
