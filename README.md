@@ -72,7 +72,26 @@ tools/oracle/     對帳與量測工具（精度底線、CPU/GPU 對比、慣例
 tools/hardware/   IR → OpenQASM 2.0 匯出，以及真機（Quantum Inspire／Tuna-17）驗證與結果檢視
 SPEC.md           規格書（含每一項判準與版本史）
 notes/            研究筆記（各框架的實際慣例與踩過的坑）
+
+以下三個目錄是重構之前的研究材料，保留作為記錄（見下一節）
+qbn/              QBN（量子貝氏網路）分類器：電路、編碼、訓練迴圈、張量網路對應
+mlkit/            評估工具：指標、ECE、可靠度、溫度縮放、不確定性量化
+experiments/      研究腳本 s01–s16（容量掃描、消融、基線、優化器與深度探針）
 ```
+
+## 關於 `qbn/`、`mlkit/`、`experiments/`
+
+這三個目錄是**這套件重構之前**的研究材料，保留在版本庫裡作為記錄，不是套件的一部分：
+
+- **不會被安裝**：`pip install qml01c` 不含它們；`pyproject.toml` 的
+  `packages = ["src/q01"]` 也只打包 `src/q01`。
+- **後續發展不在這裡**：它們對應的研究工作已經移到獨立的研究儲存庫；其中與論文相關的
+  部分公開發表在 [`snow-The/qbn-capacity-calibration`](https://github.com/snow-The/qbn-capacity-calibration)
+  （`ml/`、`c1/`、`theory/` 等）。這裡是當時的快照。
+- **真機路徑已不同**：這些舊腳本用的是 **Quafu**（該路線後來放棄）；現在的真機前端是
+  `src/q01/hardware.py`，走 **Quantum Inspire／Tuna-17**。
+- **刻意不刪**：保留是為了讓當時的實驗腳本與結論仍可追溯——尤其是 `experiments/s16_capacity_final.py`，
+  它是那份容量掃描結果的原始產生器。
 
 ## 文件
 
